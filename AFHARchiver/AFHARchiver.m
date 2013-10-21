@@ -93,7 +93,7 @@ static NSDictionary * AFHTTPArchiveRequestDictionaryForRequest(NSURLRequest *req
     return [NSDictionary dictionaryWithDictionary:requestDictionary];
 }
 
-static NSDictionary * AFHTTPArchiveResponseDictionaryForResponse(NSHTTPURLResponse *response, NSData *responseData){
+static NSDictionary * AFHTTPArchiveResponseDictionaryForResponse(NSHTTPURLResponse *response, NSData *responseData, bool archiveResponseBody){
     NSMutableDictionary * responseDictionary = [NSMutableDictionary dictionary];
     
     //status [number] - Response status.
@@ -126,7 +126,7 @@ static NSDictionary * AFHTTPArchiveResponseDictionaryForResponse(NSHTTPURLRespon
         contentType = @"";
     }
     [contentDictionary setValue:contentType forKey:@"mimeType"];
-    if(responseData){
+    if(responseData && archiveResponseBody){
         //@TODO How should better handle not text data?
         NSString * string = [[NSString alloc] initWithData:responseData encoding:NSUTF8StringEncoding];
         [contentDictionary setValue:string forKey:@"text"];
@@ -194,7 +194,7 @@ static NSDictionary * AFHTTPArchiveEntryDictionary(NSDate *startDate, NSDate *en
 }
 
 
-static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOperation * operation){
+static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOperation * operation, BOOL archiveResponseBody){
     NSDate * startTime = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingStartDate);
     NSDate * endTime = objc_getAssociatedObject(operation, AFHTTPRequestOperationArchivingEndDate);
     
@@ -205,7 +205,7 @@ static NSDictionary * AFHTTPArchiveEntryDictionaryForOperation(AFHTTPRequestOper
     }
     
     NSDictionary *requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(request);
-    NSDictionary *responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(operation.response, operation.responseData);
+    NSDictionary *responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(operation.response, operation.responseData, archiveResponseBody);
     
     return AFHTTPArchiveEntryDictionary(startTime,endTime,requestDictionary,responseDictionary);
 }
@@ -267,6 +267,7 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
         [self setupRedirectSwizzle];
         [self setupDefaultSessionValuesForFilePath:filePath];
         [self setupShellFileForFilePath:filePath error:error];
+        self.archiveResponseBody = YES;
         [[AFHARchiverManager sharedInstance] addArchiver:self];
     }
     return self;
@@ -375,7 +376,7 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
         startTime = endTime;
     }
     NSDictionary * requestDictionary = AFHTTPArchiveRequestDictionaryForRequest(currentRequest);
-    NSDictionary * responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(redirectResponse, nil);
+    NSDictionary * responseDictionary = AFHTTPArchiveResponseDictionaryForResponse(redirectResponse, nil, self.archiveResponseBody);
     if([self shouldArchiveOperation:operation]){
         [self archiveHTTPArchiveDictionary:AFHTTPArchiveEntryDictionary(startTime, endTime, requestDictionary, responseDictionary)];
     }
@@ -465,9 +466,9 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
     return AFHTTPArchiveRequestDictionaryForRequest(operation.request);
 }
 
-+(NSDictionary*)HTTPArchiveResponseDictionaryForOperation:(AFHTTPRequestOperation*)operation{
-    return AFHTTPArchiveResponseDictionaryForResponse(operation.response, operation.responseData);
-}
+//+(NSDictionary*)HTTPArchiveResponseDictionaryForOperation:(AFHTTPRequestOperation*)operation{
+//    return AFHTTPArchiveResponseDictionaryForResponse(operation.response, operation.responseData);
+//}
 
 -(BOOL)shouldArchiveOperation:(AFHTTPRequestOperation*)operation{
     if(self.shouldArchiveOperationHandlerBlock)
@@ -477,7 +478,7 @@ typedef BOOL (^AFHARchiverShouldArchiveOperationBlock)(AFHTTPRequestOperation * 
 }
 
 -(void)archiveOperation:(AFHTTPRequestOperation *)operation{
-    NSDictionary * dictionary = AFHTTPArchiveEntryDictionaryForOperation(operation);
+    NSDictionary * dictionary = AFHTTPArchiveEntryDictionaryForOperation(operation, self.archiveResponseBody);
     [self archiveHTTPArchiveDictionary:dictionary];
 }
 

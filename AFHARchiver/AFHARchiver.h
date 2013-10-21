@@ -47,6 +47,11 @@
  */
 @property (readonly,nonatomic,assign) BOOL isArchiving;
 
+/**
+ A BOOL flag representing if we archive the actual server responses. Defaults to true.
+ */
+@property (nonatomic,assign) BOOL archiveResponseBody;
+
 ///-----------------------------------------
 /// @name Initialization
 ///-----------------------------------------
